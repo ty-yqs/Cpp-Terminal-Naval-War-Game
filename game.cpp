@@ -5,9 +5,11 @@
 #include <cstdlib>
 #include <ctime>
 
-Game::Game() : renderer_(World::kRows, World::kCols) {
+Game::Game(std::string mapFilePath)
+    : renderer_(World::kRows, World::kCols), mapFilePath_(std::move(mapFilePath)) {
     std::srand(std::time(nullptr));
     player_ = std::make_unique<PlayerShip>(World::kRows - 2, World::kCols / 2);
+    world_ = mapFilePath_.empty() ? World() : World(mapFilePath_);
     startLevel(1);
 }
 
@@ -19,7 +21,7 @@ void Game::startLevel(int newLevel) {
     enemies_.clear();
     projectiles_.clear();
     pickups_.clear();
-    world_ = World();
+    world_ = mapFilePath_.empty() ? World() : World(mapFilePath_);
 
     // Reposition player to a safe, familiar spawn point.
     player_->setPos(World::kRows - 2, World::kCols / 2);

@@ -1,6 +1,7 @@
 #pragma once
 #include <vector>
 #include <memory>
+#include <string>
 #include "world.h"
 #include "renderer.h"
 #include "input_manager.h"
@@ -11,7 +12,7 @@
 
 class Game {
 public:
-    Game();
+    explicit Game(std::string mapFilePath = "");
     void runLoop();
 
 private:
@@ -37,6 +38,8 @@ private:
     std::vector<std::unique_ptr<Pickup>> pickups_;
     
     int spawnTimer_ = 0;
+
+    std::string mapFilePath_;
 
     int level_ = 1;
     static constexpr int kLevel1WinCoins = 1000;

@@ -1,195 +1,156 @@
-# Class Diagram
-
 ```mermaid
 classDiagram
-    class Entity {
-        <<abstract>>
-        #int row_
-        #int col_
-        #string glyph_
-        #int color_
-        #bool dead_
-        +Entity(int row, int col, string glyph)
-        +~Entity()
-        +update()*
-        +getRow() int
-        +getCol() int
-        +getGlyph() string
-        +setPos(int r, int c)
-        +getColor() int
-        +setColor(int c)
-        +isDead() bool
-        +kill()
-    }
+direction TB
 
-    class Ship {
-        #int hp_
-        #int maxHp_
-        #vector~unique_ptr~Projectile~~ newProjectiles_
-        +Ship(int row, int col, string glyph, int hp)
-        +takeDamage(int dmg)
-        +getHp() int
-        +getMaxHp() int
-        +collectNewProjectiles() vector~unique_ptr~Projectile~~
-        #spawnProjectile(unique_ptr~Projectile~ p)
-    }
+class Game {
+	+Game(mapFilePath: string = "")
+	+runLoop()
+	-handleInput(input: InputState)
+	-update()
+	-render()
+	-spawnEnemies()
+	-spawnPickups()
+	-checkCollisions()
+	-collectProjectiles()
+	-startLevel(newLevel: int)
+}
 
-    class PlayerShip {
-        -int coins_
-        -int shells_
-        -int missiles_
-        -int lastDirRow_
-        -int lastDirCol_
-        +PlayerShip(int row, int col)
-        +update()
-        +handleInput(InputState input, World world)
-        +addCoins(int amount)
-        +getCoins() int
-        +addAmmo(int shells, int missiles)
-        +heal(int amount)
-        +getShells() int
-        +getMissiles() int
-    }
+class World {
+	+kRows: int$ = 30
+	+kCols: int$ = 80
+	+World()
+	+World(mapFilePath: string)
+	+inBounds(row: int, col: int) bool
+	+isBlocked(row: int, col: int) bool
+}
 
-    class EnemyShip {
-        -EnemyType type_
-        -int moveTimer_
-        -int fireTimer_
-        -int moveInterval_
-        -int fireInterval_
-        -int bomberDir_
-        -int shells_
-        -int torpedoes_
-        -int missiles_
-        +EnemyShip(int row, int col, EnemyType type)
-        +update()
-        +aiUpdate(int playerRow, int playerCol, int maxRows, int maxCols)
-        +getEnemyType() EnemyType
-        +getScoreValue() int
-    }
+class Renderer {
+	+Renderer(rows: int, cols: int)
+	+~Renderer()
+	+clear()
+	+drawBorders()
+	+drawWorld(world: World)
+	+drawHud(status: string)
+	+drawEntity(entity: Entity)
+	+printAt(row: int, col: int, text: string)
+	+present()
+}
 
-    class Projectile {
-        -int dRow_
-        -int dCol_
-        -ProjectileType type_
-        -int lifeTime_
-        -bool tracking_
-        -int targetRow_
-        -int targetCol_
-        +Projectile(int row, int col, int dRow, int dCol, ProjectileType type)
-        +update()
-        +getDamage() int
-        +getType() ProjectileType
-        +setTarget(int tRow, int tCol)
-    }
+class InputManager {
+	+poll() InputState
+}
 
-    class Pickup {
-        -PickupType type_
-        +Pickup(int row, int col, PickupType type)
-        +update()
-        +getType() PickupType
-    }
+class InputState {
+	+dRow: int
+	+dCol: int
+	+fireShell: bool
+	+fireSpreadLeft: bool
+	+fireSpreadRight: bool
+	+fireMissile: bool
+	+quit: bool
+}
 
-    class World {
-        +static int kRows
-        +static int kCols
-        -bool obstacles_[30][80]
-        +World()
-        +inBounds(int row, int col) bool
-        +isBlocked(int row, int col) bool
-    }
+class Entity {
+	<<abstract>>
+	+Entity(row: int, col: int, glyph: string)
+	+update()$*
+	+getRow() int
+	+getCol() int
+	+getGlyph() string
+	+setPos(r: int, c: int)
+	+getColor() int
+	+setColor(c: int)
+	+isDead() bool
+	+kill()
+}
 
-    class Renderer {
-        -int rows_
-        -int cols_
-        +Renderer(int rows, int cols)
-        +~Renderer()
-        +clear()
-        +drawBorders()
-        +drawWorld(World world)
-        +drawHud(string status)
-        +drawEntity(Entity entity)
-        +printAt(int row, int col, string text)
-        +present()
-    }
+class Ship {
+	<<abstract>>
+	+Ship(row: int, col: int, glyph: string, hp: int)
+	+takeDamage(dmg: int)
+	+getHp() int
+	+getMaxHp() int
+	+collectNewProjectiles() vector~Projectile~
+	#spawnProjectile(p: Projectile)
+}
 
-    class InputManager {
-        +poll() InputState
-    }
+class PlayerShip {
+	+PlayerShip(row: int, col: int)
+	+update()
+	+handleInput(input: InputState, world: World)
+	+addCoins(amount: int)
+	+getCoins() int
+	+addAmmo(shells: int, missiles: int)
+	+heal(amount: int)
+	+getShells() int
+	+getMissiles() int
+}
 
-    class Game {
-        -World world_
-        -Renderer renderer_
-        -InputManager input_
-        -bool running_
-        -unique_ptr~PlayerShip~ player_
-        -vector~unique_ptr~EnemyShip~~ enemies_
-        -vector~unique_ptr~Projectile~~ projectiles_
-        -vector~unique_ptr~Pickup~~ pickups_
-        -int spawnTimer_
-        +Game()
-        +runLoop()
-        -handleInput(InputState input)
-        -update()
-        -render()
-        -spawnEnemies()
-        -spawnPickups()
-        -checkCollisions()
-        -collectProjectiles()
-    }
+class EnemyShip {
+	+EnemyShip(row: int, col: int, type: EnemyType)
+	+update()
+	+aiUpdate(playerRow: int, playerCol: int, maxRows: int, maxCols: int)
+	+getEnemyType() EnemyType
+	+getScoreValue() int
+}
 
-    class InputState {
-        <<struct>>
-        +int dRow
-        +int dCol
-        +bool fireShell
-        +bool fireSpreadLeft
-        +bool fireSpreadRight
-        +bool fireMissile
-        +bool quit
-    }
+class Projectile {
+	+Projectile(row: int, col: int, dRow: int, dCol: int, type: ProjectileType)
+	+update()
+	+getDamage() int
+	+getType() ProjectileType
+	+setTarget(tRow: int, tCol: int)
+}
 
-    class EnemyType {
-        <<enumeration>>
-        GUNBOAT
-        DESTROYER
-        CRUISER
-        BOMBER
-    }
+class Pickup {
+	+Pickup(row: int, col: int, type: PickupType)
+	+update()
+	+getType() PickupType
+}
 
-    class ProjectileType {
-        <<enumeration>>
-        SHELL
-        TORPEDO
-        MISSILE
-    }
+class EnemyType {
+	<<enumeration>>
+	GUNBOAT
+	DESTROYER
+	CRUISER
+	BOMBER
+}
 
-    class PickupType {
-        <<enumeration>>
-        WEAPON
-        MEDICAL
-    }
+class ProjectileType {
+	<<enumeration>>
+	SHELL
+	TORPEDO
+	MISSILE
+}
 
-    Entity <|-- Ship
-    Entity <|-- Projectile
-    Entity <|-- Pickup
-    Ship <|-- PlayerShip
-    Ship <|-- EnemyShip
-    
-    Game *-- World
-    Game *-- Renderer
-    Game *-- InputManager
-    Game *-- PlayerShip
-    Game o-- EnemyShip
-    Game o-- Projectile
-    Game o-- Pickup
+class PickupType {
+	<<enumeration>>
+	WEAPON
+	MEDICAL
+}
 
-    EnemyShip ..> EnemyType
-    Projectile ..> ProjectileType
-    Pickup ..> PickupType
-    PlayerShip ..> InputState
-    PlayerShip ..> World
-    Renderer ..> World
-    Renderer ..> Entity
-    InputManager ..> InputState
+%% Inheritance
+Entity <|-- Ship
+Ship <|-- PlayerShip
+Ship <|-- EnemyShip
+Entity <|-- Projectile
+Entity <|-- Pickup
+
+%% Composition / ownership (Game manages lifetime)
+Game *-- World
+Game *-- Renderer
+Game *-- InputManager
+Game *-- PlayerShip
+Game *-- EnemyShip
+Game *-- Projectile
+Game *-- Pickup
+
+%% Usage / dependencies
+InputManager ..> InputState : returns
+Renderer ..> Entity : draws
+Renderer ..> World : draws
+EnemyShip ..> EnemyType
+Projectile ..> ProjectileType
+Pickup ..> PickupType
 ```
+
