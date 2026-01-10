@@ -11,6 +11,7 @@ public:
     
     void addCoins(int amount) { coins_ += amount; }
     int getCoins() const { return coins_; }
+    void resetCoins() { coins_ = 0; }
     
     void addAmmo(int shells, int missiles);
     void heal(int amount);

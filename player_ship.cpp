@@ -1,4 +1,6 @@
 #include "player_ship.h"
+#include <sstream>
+#include <vector>
 
 PlayerShip::PlayerShip(int row, int col)
     : Ship(row, col, " ^\n \"\n V", 1000) {
@@ -16,6 +18,23 @@ void PlayerShip::update() {
 }
 
 void PlayerShip::handleInput(const InputState& input, const World& world) {
+    auto canPlaceGlyphAt = [&](int baseRow, int baseCol, const std::string& glyph) -> bool {
+        std::stringstream ss(glyph);
+        std::string line;
+        int dr = 0;
+        while (std::getline(ss, line)) {
+            for (int dc = 0; dc < (int)line.size(); ++dc) {
+                if (line[dc] == ' ') continue;
+                const int rr = baseRow + dr;
+                const int cc = baseCol + dc;
+                if (!world.inBounds(rr, cc)) return false;
+                if (world.isBlocked(rr, cc)) return false;
+            }
+            ++dr;
+        }
+        return true;
+    };
+
     // 移动
     int nextRow = row_ + input.dRow;
     int nextCol = col_ + input.dCol;
@@ -30,9 +49,9 @@ void PlayerShip::handleInput(const InputState& input, const World& world) {
         else glyph_ = "<=>";
     }
 
-    // 边界检查
-    if (world.inBounds(nextRow, nextCol)) {
-        if (!world.isBlocked(nextRow, nextCol)) {
+    // 边界/障碍检查：按实际 glyph 占用的格子判断（避免船体出界导致“少一行”）
+    if (input.dRow != 0 || input.dCol != 0) {
+        if (canPlaceGlyphAt(nextRow, nextCol, glyph_)) {
             row_ = nextRow;
             col_ = nextCol;
         }
@@ -46,31 +65,119 @@ void PlayerShip::handleInput(const InputState& input, const World& world) {
         int dc = (input.dRow != 0 || input.dCol != 0) ? input.dCol : lastDirCol_;
         if (dr == 0 && dc == 0) dr = -1; // 默认向上
 
-        spawnProjectile(std::make_unique<Projectile>(row_ + dr, col_ + dc, dr, dc, ProjectileType::SHELL));
+        // 从船体在该方向的“最前沿占格”外侧一格生成，避免出生在自身占格里造成自伤
+        int muzzleRow = row_;
+        int muzzleCol = col_;
+        {
+            std::stringstream ss(glyph_);
+            std::string line;
+            int bestScore = -1e9;
+            int glyphDr = 0;
+            while (std::getline(ss, line)) {
+                for (int glyphDc = 0; glyphDc < (int)line.size(); ++glyphDc) {
+                    if (line[glyphDc] == ' ') continue;
+                    const int score = glyphDr * dr + glyphDc * dc;
+                    if (score > bestScore) {
+                        bestScore = score;
+                        muzzleRow = row_ + glyphDr;
+                        muzzleCol = col_ + glyphDc;
+                    }
+                }
+                ++glyphDr;
+            }
+        }
+
+        spawnProjectile(std::make_unique<Projectile>(muzzleRow + dr, muzzleCol + dc, dr, dc, ProjectileType::SHELL));
     }
     
-    if (input.fireSpreadLeft && shells_ >= 3) {
+    auto fireSideParallel = [&](bool fireLeftOfForward) {
+        if (shells_ < 3) return;
         shells_ -= 3;
-        // 左侧散射: 左上, 左, 左下? 或者是向左发射三发?
-        // 题目: "Three bullets by hitting 'a', direction left"
-        // 简单实现：向左发射
-        spawnProjectile(std::make_unique<Projectile>(row_, col_ - 1, 0, -1, ProjectileType::SHELL));
-        spawnProjectile(std::make_unique<Projectile>(row_ - 1, col_ - 1, -1, -1, ProjectileType::SHELL));
-        spawnProjectile(std::make_unique<Projectile>(row_ + 1, col_ - 1, 1, -1, ProjectileType::SHELL));
-    }
 
-    if (input.fireSpreadRight && shells_ >= 3) {
-        shells_ -= 3;
-        // 向右散射
-        spawnProjectile(std::make_unique<Projectile>(row_, col_ + 1, 0, 1, ProjectileType::SHELL));
-        spawnProjectile(std::make_unique<Projectile>(row_ - 1, col_ + 1, -1, 1, ProjectileType::SHELL));
-        spawnProjectile(std::make_unique<Projectile>(row_ + 1, col_ + 1, 1, 1, ProjectileType::SHELL));
+        // 当前移动方向：优先用本帧输入，否则用最后一次移动方向
+        int forwardRow = (input.dRow != 0 || input.dCol != 0) ? input.dRow : lastDirRow_;
+        int forwardCol = (input.dRow != 0 || input.dCol != 0) ? input.dCol : lastDirCol_;
+        if (forwardRow == 0 && forwardCol == 0) {
+            forwardRow = -1;
+            forwardCol = 0;
+        }
+
+        // 相对 forward 的左/右：
+        // left  = (-forwardCol, forwardRow)
+        // right = ( forwardCol,-forwardRow)
+        const int fireDirRow = fireLeftOfForward ? (-forwardCol) : (forwardCol);
+        const int fireDirCol = fireLeftOfForward ? ( forwardRow) : (-forwardRow);
+
+        // 从当前 glyph 的“非空格占格”取前三格作为炮口，并向侧边外移一格生成
+        std::vector<std::pair<int, int>> occupied;
+        occupied.reserve(3);
+        {
+            std::stringstream ss(glyph_);
+            std::string line;
+            int dr = 0;
+            while (std::getline(ss, line)) {
+                for (int dc = 0; dc < (int)line.size(); ++dc) {
+                    if (line[dc] == ' ') continue;
+                    occupied.push_back({dr, dc});
+                    if ((int)occupied.size() == 3) break;
+                }
+                if ((int)occupied.size() == 3) break;
+                ++dr;
+            }
+        }
+
+        for (const auto& cell : occupied) {
+            const int shipRow = row_ + cell.first;
+            const int shipCol = col_ + cell.second;
+            spawnProjectile(std::make_unique<Projectile>(
+                shipRow + fireDirRow,
+                shipCol + fireDirCol,
+                fireDirRow,
+                fireDirCol,
+                ProjectileType::SHELL));
+        }
+    };
+
+    if (input.fireSpreadLeft) {
+        fireSideParallel(true);
+    }
+    if (input.fireSpreadRight) {
+        fireSideParallel(false);
     }
 
     if (input.fireMissile && missiles_ > 0) {
         missiles_--;
-        // 导弹，初始方向向上，之后会自动追踪
-        auto m = std::make_unique<Projectile>(row_ - 1, col_, -1, 0, ProjectileType::MISSILE);
+        // 导弹按当前运动方向发射；若静止则沿最后运动方向；再否则默认向上
+        int dr = (input.dRow != 0 || input.dCol != 0) ? input.dRow : lastDirRow_;
+        int dc = (input.dRow != 0 || input.dCol != 0) ? input.dCol : lastDirCol_;
+        if (dr == 0 && dc == 0) {
+            dr = -1;
+            dc = 0;
+        }
+
+        // 从船体在该方向的“最前沿占格”外侧一格生成，避免出生在自身占格里
+        int muzzleRow = row_;
+        int muzzleCol = col_;
+        {
+            std::stringstream ss(glyph_);
+            std::string line;
+            int bestScore = -1e9;
+            int glyphDr = 0;
+            while (std::getline(ss, line)) {
+                for (int glyphDc = 0; glyphDc < (int)line.size(); ++glyphDc) {
+                    if (line[glyphDc] == ' ') continue;
+                    const int score = glyphDr * dr + glyphDc * dc;
+                    if (score > bestScore) {
+                        bestScore = score;
+                        muzzleRow = row_ + glyphDr;
+                        muzzleCol = col_ + glyphDc;
+                    }
+                }
+                ++glyphDr;
+            }
+        }
+
+        auto m = std::make_unique<Projectile>(muzzleRow + dr, muzzleCol + dc, dr, dc, ProjectileType::MISSILE);
         // 需要在Game层设置目标，这里先生成
         spawnProjectile(std::move(m));
     }

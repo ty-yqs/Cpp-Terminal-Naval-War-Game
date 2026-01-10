@@ -6,9 +6,11 @@ InputState InputManager::poll() {
     switch (ch) {
     case KEY_UP:
         state.dRow = -1;
+        state.up = true;
         break;
     case KEY_DOWN:
         state.dRow = 1;
+        state.down = true;
         break;
     case KEY_LEFT:
         state.dCol = -1;

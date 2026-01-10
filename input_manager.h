@@ -4,6 +4,8 @@
 struct InputState {
     int dRow = 0;
     int dCol = 0;
+    bool up = false;
+    bool down = false;
     bool fireShell = false;
     bool fireSpreadLeft = false;
     bool fireSpreadRight = false;

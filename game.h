@@ -10,6 +10,13 @@
 #include "projectile.h"
 #include "pickup.h"
 
+enum class GameState {
+    MENU,
+    PLAYING,
+    GAME_OVER,
+    WIN
+};
+
 class Game {
 public:
     explicit Game(std::string mapFilePath = "");
@@ -17,8 +24,10 @@ public:
 
 private:
     void handleInput(const InputState &input);
+    void handleMenuInput(const InputState &input);
     void update();
     void render();
+    void renderMenu();
     
     void spawnEnemies();
     void spawnPickups();
@@ -31,6 +40,8 @@ private:
     Renderer renderer_;
     InputManager input_;
     bool running_ = false;
+    GameState state_ = GameState::MENU;
+    int menuSelection_ = 0;
     
     std::unique_ptr<PlayerShip> player_;
     std::vector<std::unique_ptr<EnemyShip>> enemies_;
@@ -42,6 +53,6 @@ private:
     std::string mapFilePath_;
 
     int level_ = 1;
-    static constexpr int kLevel1WinCoins = 1000;
-    static constexpr int kLevel2WinCoins = 2000;
+    static constexpr int kLevel1WinCoins = 100;
+    static constexpr int kLevel2WinCoins = 200;
 };

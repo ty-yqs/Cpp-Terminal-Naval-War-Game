@@ -1,7 +1,7 @@
 #include "enemy_ship.h"
 #include <cstdlib>
 
-EnemyShip::EnemyShip(int row, int col, EnemyType type)
+EnemyShip::EnemyShip(int row, int col, EnemyType type, int bomberDir)
     : Ship(row, col, "?", 1), type_(type) {
     
     switch (type) {
@@ -35,10 +35,11 @@ EnemyShip::EnemyShip(int row, int col, EnemyType type)
             setColor(4); // Magenta
             break;
         case EnemyType::BOMBER:
-            glyph_ = " \\\n==\n /"; // Initial right facing, centered
+            bomberDir_ = (bomberDir >= 0) ? 1 : -1;
+            glyph_ = (bomberDir_ > 0) ? "\\\n==\n/" : "/\n==\n\\"; // Facing based on direction
             hp_ = 9999; // Cannot be damaged
             maxHp_ = 9999;
-            moveInterval_ = 5;
+            moveInterval_ = 3;
             fireInterval_ = 25;
             shells_ = 3; // "has 3 bullets"
             torpedoes_ = 999; // "Or drop a torpedo"
@@ -60,6 +61,7 @@ int EnemyShip::getScoreValue() const {
 }
 
 void EnemyShip::aiUpdate(int playerRow, int playerCol, int maxRows, int maxCols) {
+    if (isDead()) return;
     moveTimer_++;
     fireTimer_++;
     
@@ -69,14 +71,18 @@ void EnemyShip::aiUpdate(int playerRow, int playerCol, int maxRows, int maxCols)
         
         if (type_ == EnemyType::BOMBER) {
             // Fly horizontally
-            col_ += bomberDir_;
-            if (col_ <= 0 || col_ >= maxCols - 2) { // Adjust for width
-                bomberDir_ *= -1; // Bounce
+            int nextCol = col_ + bomberDir_;
+            // Only disappear when attempting to leave bounds (allow edge positions).
+            if (nextCol < 0 || nextCol > maxCols - 2) {
+                kill();
+                return;
             }
-            
+
+            col_ = nextCol;
+
             // Update glyph
-            if (bomberDir_ > 0) glyph_ = " \\\n==\n /";
-            else glyph_ = " /\n==\n \\";
+            if (bomberDir_ > 0) glyph_ = "\\\n==\n/";
+            else glyph_ = "/\n==\n\\";
 
         } else if (type_ == EnemyType::CRUISER) {
             // Only move horizontally

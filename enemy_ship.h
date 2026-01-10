@@ -10,7 +10,7 @@ enum class EnemyType {
 
 class EnemyShip : public Ship {
 public:
-    EnemyShip(int row, int col, EnemyType type);
+    EnemyShip(int row, int col, EnemyType type, int bomberDir = 1);
     void update() override;
     
     // AI Logic needs player position
